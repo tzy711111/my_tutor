@@ -5,7 +5,8 @@ import '../constants.dart';
 import 'package:http/http.dart' as http;
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/regis.dart';
+import '../models/user.dart';
+import 'mainscreen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -27,7 +28,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    // loadPref();
+    loadPref();
   }
 
   @override
@@ -207,7 +208,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               style: TextStyle(
                                 fontSize: 14.0,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.indigo,
+                                color: Colors.blueGrey,
                               ),
                             ),
                           )
@@ -230,7 +231,7 @@ class _LoginScreenState extends State<LoginScreen> {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       if (value) {
         await prefs.setString('email', email);
-        await prefs.setString('pass', password);
+        await prefs.setString('password', password);
         await prefs.setBool('remember', true);
         Fluttertoast.showToast(
             msg: "Preference Stored",
@@ -240,7 +241,7 @@ class _LoginScreenState extends State<LoginScreen> {
             fontSize: 14.0);
       } else {
         await prefs.setString('email', '');
-        await prefs.setString('pass', '');
+        await prefs.setString('password', '');
         await prefs.setBool('remember', false);
         _emailEditingController.text = "";
         _passwordEditingController.text = "";
@@ -296,18 +297,21 @@ class _LoginScreenState extends State<LoginScreen> {
       http.post(Uri.parse(CONSTANTS.server + "/mytutor/php/login_user.php"),
           body: {"email": _email, "password": _password}).then((response) {
         var data = jsonDecode(response.body);
-        //print(response.body);
+        print(response.body);
         if (response.statusCode == 200 && data['status'] == 'success') {
-          Registration regis = Registration.fromJson(data['data']);
-
+          User user = User.fromJson(data['data']);
           Fluttertoast.showToast(
               msg: "Login Success",
               toastLength: Toast.LENGTH_SHORT,
               gravity: ToastGravity.BOTTOM,
               timeInSecForIosWeb: 1,
               fontSize: 16.0);
-        } 
-        else {
+
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (BuildContext content) => MainScreen(user: user)));
+        } else {
           Fluttertoast.showToast(
               msg: "Login Failed",
               toastLength: Toast.LENGTH_SHORT,

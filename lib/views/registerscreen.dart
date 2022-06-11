@@ -32,8 +32,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _addressEditingController =
       TextEditingController();
 
-  
-
   @override
   void dispose() {
     print("dispose was called");
@@ -159,9 +157,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 return 'Please enter phone number';
                               }
 
-                             bool phoneValid = RegExp(
-                                      r'(^[0-9]*$)')
-                                  .hasMatch(value);
+                              bool phoneValid =
+                                  RegExp(r'(^[0-9]*$)').hasMatch(value);
                               if (!phoneValid) {
                                 return 'Please enter a valid phone number';
                               }
@@ -250,10 +247,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: const Text(
                     " Sign in!",
                     style: TextStyle(
-                      fontSize: 14.0,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.indigo,
-                    ),
+                        fontSize: 14.0,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blueGrey),
                   ),
                 ),
               ],
@@ -384,14 +380,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
           );
         },
       );
-    }
-    else{
+    } else {
       Fluttertoast.showToast(
-            msg: "Please complete the registration form.",
-            toastLength: Toast.LENGTH_SHORT,
-            gravity: ToastGravity.BOTTOM,
-            timeInSecForIosWeb: 1,
-            fontSize: 14.0);
+          msg: "Please complete the registration form.",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+          fontSize: 14.0);
     }
   }
 

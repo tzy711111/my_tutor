@@ -1,18 +1,18 @@
-class Registration {
+class User {
   String? name;
   String? phoneNum;
   String? email;
   String? address;
   String? password;
 
-  Registration(
+  User(
       {this.name,
       this.phoneNum,
       this.email,
       this.address,
       this.password});
 
-  Registration.fromJson(Map<String, dynamic> json) {
+  User.fromJson(Map<String, dynamic> json) {
     name = json['name'];
     phoneNum = json['phoneNum'];
     email = json['email'];
