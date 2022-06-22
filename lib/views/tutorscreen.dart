@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:my_tutor/views/tutorDetail.dart';
 import '../constants.dart';
 import '../models/tutor.dart';
+import 'package:intl/intl.dart';
 import '../models/user.dart';
 
 class TutorScreen extends StatefulWidget {
@@ -16,14 +16,16 @@ class TutorScreen extends StatefulWidget {
 }
 
 class _TutorScreenState extends State<TutorScreen> {
-  List ttlist = [];
+  List<Tutor> ttlist = <Tutor>[];
   String titlecenter = "Loading...";
   late double screenHeight, screenWidth, resWidth;
   var numofpage, curpage = 1;
   var color;
   TextEditingController searchController = TextEditingController();
   String search = "";
-
+  final df = DateFormat('dd/MM/yyyy hh:mm a');
+  Icon cusIcon = const Icon(Icons.search);
+  Widget cusSearch = const Text("Tutor");
   @override
   void initState() {
     super.initState();
@@ -42,14 +44,24 @@ class _TutorScreenState extends State<TutorScreen> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: const Text('Tutor'),
-        actions: [
+        title: cusSearch,
+        actions: <Widget>[
           IconButton(
-            icon: const Icon(Icons.search),
             onPressed: () {
-              _loadSearchDialog();
+              setState(() {
+                if (cusIcon.icon == Icons.search) {
+                  cusIcon = const Icon(Icons.clear);
+                  cusSearch = _searchBar();
+                  searchController.clear();
+                } else {
+                  cusIcon = const Icon(Icons.search);
+                  cusSearch = const Text("Tutor");
+                  _loadTutors(1, "");
+                }
+              });
             },
-          )
+            icon: cusIcon,
+          ),
         ],
       ),
       body: ttlist.isEmpty
@@ -65,7 +77,7 @@ class _TutorScreenState extends State<TutorScreen> {
                       children: List.generate(ttlist.length, (index) {
                         return InkWell(
                           splashColor: Colors.blueGrey,
-                          onTap: () => {_tutorDetails(index)},
+                          onTap: () => {_loadTutorDetails(index)},
                           child: Card(
                               child: Column(
                             children: [
@@ -75,7 +87,7 @@ class _TutorScreenState extends State<TutorScreen> {
                                   width: 100,
                                   imageUrl: CONSTANTS.server +
                                       "/mytutor/assets/tutors/" +
-                                      ttlist[index]['tutor_id'] +
+                                      ttlist[index].tutorId.toString() +
                                       '.jpg',
                                   placeholder: (context, url) =>
                                       const LinearProgressIndicator(),
@@ -95,7 +107,8 @@ class _TutorScreenState extends State<TutorScreen> {
                                             child: Text(
                                               truncateWithEllipsis(
                                                 30,
-                                                ttlist[index]['tutor_name']
+                                                ttlist[index]
+                                                    .tutorName
                                                     .toString(),
                                               ),
                                               textAlign: TextAlign.left,
@@ -117,8 +130,8 @@ class _TutorScreenState extends State<TutorScreen> {
                                               Flexible(
                                                   child: Text(
                                                       " " +
-                                                          ttlist[index][
-                                                                  'tutor_phone']
+                                                          ttlist[index]
+                                                              .tutorPhone
                                                               .toString(),
                                                       style: const TextStyle(
                                                         color: Colors.blueGrey,
@@ -137,12 +150,11 @@ class _TutorScreenState extends State<TutorScreen> {
                                               Flexible(
                                                   child: Text(
                                                       truncateWithEllipsis(
-                                                        17,
-                                                        " " +
-                                                            ttlist[index][
-                                                                    'tutor_email']
-                                                                .toString(),
-                                                      ),
+                                                          17,
+                                                          " " +
+                                                              ttlist[index]
+                                                                  .tutorEmail
+                                                                  .toString()),
                                                       style: const TextStyle(
                                                         color: Colors.blueGrey,
                                                         fontSize: 13,
@@ -199,8 +211,7 @@ class _TutorScreenState extends State<TutorScreen> {
         }).timeout(
       const Duration(seconds: 5),
       onTimeout: () {
-        return http.Response(
-            'Error', 408); 
+        return http.Response('Error', 408);
       },
     ).then((response) {
       var jsondata = jsonDecode(response.body);
@@ -208,79 +219,234 @@ class _TutorScreenState extends State<TutorScreen> {
       if (response.statusCode == 200 && jsondata['status'] == 'success') {
         var extractdata = jsondata['data'];
         numofpage = int.parse(jsondata['numofpage']);
-        setState(() {
-          ttlist = extractdata['tutors'];
-          print(ttlist);
-        });
-      } else {
-        setState(() {
+        if (extractdata['tutors'] != null) {
+          ttlist = <Tutor>[];
+          extractdata['tutors'].forEach((v) {
+            ttlist.add(Tutor.fromJson(v));
+          });
+        } else {
           titlecenter = "No Tutor Available";
-        });
+          ttlist.clear();
+        }
+        setState(() {});
+      } else {
+        titlecenter = "No Tutor Available";
+        ttlist.clear();
+        setState(() {});
       }
     });
   }
 
-  _tutorDetails(int index) {
-    Tutor tutor = Tutor(
-      tutorId: ttlist[index]['tutor_id'],
-      tutorEmail: ttlist[index]['tutor_email'],
-      tutorPhone: ttlist[index]['tutor_phone'],
-      tutorName: ttlist[index]['tutor_name'],
-      tutorPassword: ttlist[index]['tutor_password'],
-      tutorDescription: ttlist[index]['tutor_description'],
-      tutorDatereg: ttlist[index]['tutor_datereg'],
-    );
-
-    Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (BuildContext context) => TutorInfo(
-                  tutor: tutor,
-                )));
-  }
-
-  void _loadSearchDialog() {
-    searchController.text = "";
+  _loadTutorDetails(int index) {
     showDialog(
         context: context,
         builder: (BuildContext context) {
-          return StatefulBuilder(
-            builder: (context, StateSetter setState) {
-              return AlertDialog(
-                title: const Text(
-                  "Search ",
-                ),
-                content: SizedBox(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        height: 50,
-                        width: 200,
-                        child: TextField(
-                          controller: searchController,
-                          decoration: InputDecoration(
-                              labelText: 'Search',
-                              border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(5.0))),
+          return AlertDialog(
+            insetPadding: const EdgeInsets.all(10),
+            shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.all(Radius.circular(20.0))),
+            titlePadding: const EdgeInsets.all(0),
+            title: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    child: Row(children: [
+                      const SizedBox(width: 15),
+                      const Text(
+                        "Tutors Details",
+                        style: TextStyle(
+                            color: Colors.blueGrey,
+                            fontSize: 19,
+                            fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 110),
+                      Align(
+                        alignment: Alignment.topRight,
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.close,
+                            color: Colors.blueGrey,
+                            size: 25,
+                          ),
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
                         ),
                       ),
-                    ],
+                    ]),
+                  ),
+                ]),
+            content: SingleChildScrollView(
+                child: Column(
+              children: [
+                SizedBox(
+                  height: screenHeight / 3.0,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 5, 10, 5),
+                    child: SizedBox(
+                      height: screenHeight / 2.5,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black),
+                        ),
+                        child: CachedNetworkImage(
+                          width: resWidth * 0.45,
+                          fit: BoxFit.cover,
+                          imageUrl: CONSTANTS.server +
+                              "/mytutor/assets/tutors/" +
+                              ttlist[index].tutorId.toString() +
+                              '.jpg',
+                          placeholder: (context, url) =>
+                              const LinearProgressIndicator(),
+                          errorWidget: (context, url, error) =>
+                              const Icon(Icons.error),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-                actions: [
-                  ElevatedButton(
-                    onPressed: () {
-                      search = searchController.text;
-                      Navigator.of(context).pop();
-                      _loadTutors(1, search);
-                    },
-                    child: const Text("Search"),
-                  )
-                ],
-              );
-            },
+                const SizedBox(height: 5),
+                Text(
+                  ttlist[index].tutorName.toString(),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 14,
+                      fontFamily: 'League Spartan',
+                      fontWeight: FontWeight.bold),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(5.0),
+                  child: Card(
+                    elevation: 5,
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      child: Table(
+                          columnWidths: const {
+                            0: FractionColumnWidth(0.4),
+                            1: FractionColumnWidth(0.6)
+                          },
+                          defaultVerticalAlignment:
+                              TableCellVerticalAlignment.top,
+                          children: [
+                            TableRow(children: [
+                              const Text('Phone No.',
+                                  style: TextStyle(
+                                      color: Colors.blueGrey,
+                                      fontFamily: 'League Spartan',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold)),
+                              Text(ttlist[index].tutorPhone.toString(),
+                                  style: const TextStyle(
+                                      color: Colors.blueGrey,
+                                      fontFamily: 'League Spartan',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.normal)),
+                            ]),
+                            const TableRow(children: [
+                              Text(''),
+                              Text(''),
+                            ]),
+                            TableRow(children: [
+                              const Text('Email',
+                                  style: TextStyle(
+                                      color: Colors.blueGrey,
+                                      fontFamily: 'League Spartan',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold)),
+                              Text(ttlist[index].tutorEmail.toString(),
+                                  style: const TextStyle(
+                                      color: Colors.blueGrey,
+                                      fontFamily: 'League Spartan',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.normal)),
+                            ]),
+                            const TableRow(children: [
+                              Text(''),
+                              Text(''),
+                            ]),
+                            TableRow(children: [
+                              const Text('Description',
+                                  style: TextStyle(
+                                      color: Colors.blueGrey,
+                                      fontFamily: 'League Spartan',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold)),
+                              Text(ttlist[index].tutorDescription.toString(),
+                                  style: const TextStyle(
+                                      color: Colors.blueGrey,
+                                      fontFamily: 'League Spartan',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.normal)),
+                            ]),
+                            const TableRow(children: [
+                              Text(''),
+                              Text(''),
+                            ]),
+                            TableRow(children: [
+                              const Text('Date of Registration',
+                                  style: TextStyle(
+                                      color: Colors.blueGrey,
+                                      fontFamily: 'League Spartan',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold)),
+                              Text(
+                                  df.format(DateTime.parse(
+                                      ttlist[index].tutorDatereg.toString())),
+                                  style: const TextStyle(
+                                      color: Colors.blueGrey,
+                                      fontFamily: 'League Spartan',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.normal)),
+                            ]),
+                            const TableRow(children: [
+                              Text(''),
+                              Text(''),
+                            ]),
+                            TableRow(children: [
+                              const Text('Subject',
+                                  style: TextStyle(
+                                      color: Colors.blueGrey,
+                                      fontFamily: 'League Spartan',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold)),
+                              Text(ttlist[index].tutorSubject.toString(),
+                                  style: const TextStyle(
+                                      color: Colors.blueGrey,
+                                      fontFamily: 'League Spartan',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.normal)),
+                            ]),
+                          ]),
+                    ),
+                  ),
+                ),
+              ],
+            )),
           );
         });
+  }
+
+  Widget _searchBar() {
+    return TextField(
+      textInputAction: TextInputAction.go,
+      controller: searchController,
+      onChanged: (search) {
+        setState(() {
+          if (searchController.text.isEmpty) {
+            _loadTutors(1, "");
+            ttlist = <Tutor>[];
+          } else {
+            _loadTutors(1, search);
+          }
+        });
+      },
+      decoration: const InputDecoration(
+        hintText: "Search by Tutor Name...",
+       border: InputBorder.none,
+        hintStyle: TextStyle(fontSize: 16),
+      ),
+      style: const TextStyle(color: Colors.black, fontSize: 16.0),
+    );
   }
 }

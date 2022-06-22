@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:my_tutor/views/subjDetail.dart';
 import '../constants.dart';
 import '../models/subject.dart';
 import '../models/user.dart';
@@ -16,13 +15,15 @@ class SubjScreen extends StatefulWidget {
 }
 
 class _SubjScreenState extends State<SubjScreen> {
-  List subjlist = [];
+  List<Subject> subjlist = <Subject>[];
   String titlecenter = "Loading...";
   late double screenHeight, screenWidth, resWidth;
   var numofpage, curpage = 1;
   var color;
   TextEditingController searchController = TextEditingController();
   String search = "";
+  Icon cusIcon = const Icon(Icons.search);
+  Widget cusSearch = const Text("Subject");
 
   @override
   void initState() {
@@ -42,14 +43,24 @@ class _SubjScreenState extends State<SubjScreen> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: const Text('Subject'),
-        actions: [
+        title: cusSearch,
+        actions: <Widget>[
           IconButton(
-            icon: const Icon(Icons.search),
             onPressed: () {
-              _loadSearchDialog();
+              setState(() {
+                if (cusIcon.icon == Icons.search) {
+                  cusIcon = const Icon(Icons.clear);
+                  cusSearch = _searchBar();
+                  searchController.clear();
+                } else {
+                  cusIcon = const Icon(Icons.search);
+                  cusSearch = const Text("Subject");
+                  _loadSubjects(1, "");
+                }
+              });
             },
-          )
+            icon: cusIcon,
+          ),
         ],
       ),
       body: subjlist.isEmpty
@@ -65,7 +76,7 @@ class _SubjScreenState extends State<SubjScreen> {
                       children: List.generate(subjlist.length, (index) {
                         return InkWell(
                           splashColor: Colors.blueGrey,
-                          onTap: () => {_subjectDetails(index)},
+                          onTap: () => {_loadSubjectDetails(index)},
                           child: Card(
                               child: Column(
                             children: [
@@ -77,7 +88,7 @@ class _SubjScreenState extends State<SubjScreen> {
                                   fit: BoxFit.cover,
                                   imageUrl: CONSTANTS.server +
                                       "/mytutor/assets/courses/" +
-                                      subjlist[index]['subject_id'] +
+                                      subjlist[index].subjectId.toString() +
                                       '.png',
                                   placeholder: (context, url) =>
                                       const LinearProgressIndicator(),
@@ -96,7 +107,8 @@ class _SubjScreenState extends State<SubjScreen> {
                                             child: Text(
                                               truncateWithEllipsis(
                                                 30,
-                                                subjlist[index]['subject_name']
+                                                subjlist[index]
+                                                    .subjectName
                                                     .toString(),
                                               ),
                                               textAlign: TextAlign.left,
@@ -119,9 +131,8 @@ class _SubjScreenState extends State<SubjScreen> {
                                                   child: Text(
                                                       "RM " +
                                                           double.parse(subjlist[
-                                                                          index]
-                                                                      [
-                                                                      'subject_price']
+                                                                      index]
+                                                                  .subjectPrice
                                                                   .toString())
                                                               .toStringAsFixed(
                                                                   2),
@@ -142,8 +153,8 @@ class _SubjScreenState extends State<SubjScreen> {
                                               Flexible(
                                                   child: Text(
                                                       " " +
-                                                          subjlist[index][
-                                                                  'subject_sessions']
+                                                          subjlist[index]
+                                                              .subjectSessions
                                                               .toString() +
                                                           " sessions",
                                                       style: const TextStyle(
@@ -163,8 +174,8 @@ class _SubjScreenState extends State<SubjScreen> {
                                               Flexible(
                                                   child: Text(
                                                       " " +
-                                                          subjlist[index][
-                                                                  'subject_rating']
+                                                          subjlist[index]
+                                                              .subjectRating
                                                               .toString(),
                                                       style: const TextStyle(
                                                         color: Colors.blueGrey,
@@ -222,8 +233,7 @@ class _SubjScreenState extends State<SubjScreen> {
         }).timeout(
       const Duration(seconds: 5),
       onTimeout: () {
-        return http.Response(
-            'Error', 408); 
+        return http.Response('Error', 408);
       },
     ).then((response) {
       var jsondata = jsonDecode(response.body);
@@ -231,79 +241,220 @@ class _SubjScreenState extends State<SubjScreen> {
       if (response.statusCode == 200 && jsondata['status'] == 'success') {
         var extractdata = jsondata['data'];
         numofpage = int.parse(jsondata['numofpage']);
-        setState(() {
-          subjlist = extractdata['subjects'];
-          print(subjlist);
-        });
-      } else {
-        setState(() {
+        if (extractdata['subjects'] != null) {
+          subjlist = <Subject>[];
+          extractdata['subjects'].forEach((v) {
+            subjlist.add(Subject.fromJson(v));
+          });
+        } else {
           titlecenter = "No Subject Available";
-        });
+          subjlist.clear();
+        }
+        setState(() {});
+      } else {
+        //do something
+        titlecenter = "No Subject Available";
+        subjlist.clear();
+        setState(() {});
       }
     });
   }
 
-  _subjectDetails(int index) {
-    Subject subject = Subject(
-      subjectId: subjlist[index]['subject_id'],
-      subjectName: subjlist[index]['subject_name'],
-      subjectDescription: subjlist[index]['subject_description'],
-      subjectPrice: subjlist[index]['subject_price'],
-      tutorId: subjlist[index]['tutor_id'],
-      subjectSessions: subjlist[index]['subject_sessions'],
-      subjectRating: subjlist[index]['subject_rating'],
-    );
-
-    Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (BuildContext context) => SubjInfo(
-                  subject: subject,
-                )));
-  }
-
-  void _loadSearchDialog() {
-    searchController.text = "";
+  _loadSubjectDetails(int index) {
     showDialog(
         context: context,
         builder: (BuildContext context) {
-          return StatefulBuilder(
-            builder: (context, StateSetter setState) {
-              return AlertDialog(
-                title: const Text(
-                  "Search ",
-                ),
-                content: SizedBox(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        height: 50,
-                        width: 200,
-                        child: TextField(
-                          controller: searchController,
-                          decoration: InputDecoration(
-                              labelText: 'Search',
-                              border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(5.0))),
+          return AlertDialog(
+            insetPadding: const EdgeInsets.all(15),
+            shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.all(Radius.circular(20.0))),
+            titlePadding: const EdgeInsets.all(0),
+            title: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    child: Row(children: [
+                      const SizedBox(width: 15),
+                      const Text(
+                        "Subject Details",
+                        style: TextStyle(
+                            color: Colors.blueGrey,
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 110),
+                      Align(
+                        alignment: Alignment.topRight,
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.close,
+                            color: Colors.blueGrey,
+                            size: 25,
+                          ),
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
                         ),
                       ),
-                    ],
+                    ]),
+                  ),
+                ]),
+            content: SingleChildScrollView(
+                child: Column(
+              children: [
+                SizedBox(
+                  height: screenHeight / 3.0,
+                  child: Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 5, 10, 5),
+                      child: SizedBox(
+                          height: screenHeight / 2.5,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.black),
+                            ),
+                            child: CachedNetworkImage(
+                              width: resWidth / 1.5,
+                              fit: BoxFit.cover,
+                              imageUrl: CONSTANTS.server +
+                                  "/mytutor/assets/courses/" +
+                                  subjlist[index].subjectId.toString() +
+                                  '.png',
+                              placeholder: (context, url) =>
+                                  const LinearProgressIndicator(),
+                              errorWidget: (context, url, error) =>
+                                  const Icon(Icons.error),
+                            ),
+                          ))),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  subjlist[index].subjectName.toString(),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 14,
+                      fontFamily: 'League Spartan',
+                      fontWeight: FontWeight.bold),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(5.0),
+                  child: Card(
+                    elevation: 5,
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      child: Table(
+                          columnWidths: const {
+                            0: FractionColumnWidth(0.4),
+                            1: FractionColumnWidth(0.6)
+                          },
+                          defaultVerticalAlignment:
+                              TableCellVerticalAlignment.top,
+                          children: [
+                            TableRow(children: [
+                              const Text('Description',
+                                  style: TextStyle(
+                                      color: Colors.blueGrey,
+                                      fontFamily: 'League Spartan',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold)),
+                              Text(
+                                  subjlist[index].subjectDescription.toString(),
+                                  textAlign: TextAlign.left,
+                                  style: const TextStyle(
+                                      color: Colors.blueGrey,
+                                      fontFamily: 'League Spartan',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.normal)),
+                            ]),
+                            const TableRow(children: [
+                              Text(''),
+                              Text(''),
+                            ]),
+                            TableRow(children: [
+                              const Text('Price',
+                                  style: TextStyle(
+                                      color: Colors.blueGrey,
+                                      fontFamily: 'League Spartan',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold)),
+                              Text(
+                                  "RM " +
+                                      double.parse(subjlist[index]
+                                              .subjectPrice
+                                              .toString())
+                                          .toStringAsFixed(2),
+                                  style: const TextStyle(
+                                      color: Colors.blueGrey,
+                                      fontFamily: 'League Spartan',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.normal)),
+                            ]),
+                            const TableRow(children: [
+                              Text(''),
+                              Text(''),
+                            ]),
+                            TableRow(children: [
+                              const Text('Sessions',
+                                  style: TextStyle(
+                                      color: Colors.blueGrey,
+                                      fontFamily: 'League Spartan',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold)),
+                              Text(subjlist[index].subjectSessions.toString(),
+                                  style: const TextStyle(
+                                      color: Colors.blueGrey,
+                                      fontFamily: 'League Spartan',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.normal)),
+                            ]),
+                            const TableRow(children: [
+                              Text(''),
+                              Text(''),
+                            ]),
+                            TableRow(children: [
+                              const Text('Rating',
+                                  style: TextStyle(
+                                      color: Colors.blueGrey,
+                                      fontFamily: 'League Spartan',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold)),
+                              Text(subjlist[index].subjectRating.toString(),
+                                  style: const TextStyle(
+                                      color: Colors.blueGrey,
+                                      fontFamily: 'League Spartan',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.normal)),
+                            ]),
+                          ]),
+                    ),
                   ),
                 ),
-                actions: [
-                  ElevatedButton(
-                    onPressed: () {
-                      search = searchController.text;
-                      Navigator.of(context).pop();
-                      _loadSubjects(1, search);
-                    },
-                    child: const Text("Search"),
-                  )
-                ],
-              );
-            },
+              ],
+            )),
           );
         });
+  }
+
+  Widget _searchBar() {
+    return TextField(
+      textInputAction: TextInputAction.go,
+      controller: searchController,
+      onChanged: (search) {
+        setState(() {
+          if (searchController.text.isEmpty) {
+            _loadSubjects(1, "");
+            subjlist = <Subject>[];
+          } else {
+            _loadSubjects(1, search);
+          }
+        });
+      },
+      decoration: const InputDecoration(
+        hintText: "Search by Subject Name...",
+        border: InputBorder.none,
+        hintStyle: TextStyle(fontSize: 16),
+      ),
+      style: const TextStyle(color: Colors.black, fontSize: 16.0),
+    );
   }
 }
